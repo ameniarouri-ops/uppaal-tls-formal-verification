@@ -12,7 +12,7 @@ University project (FST, Université Tunis El Manar). Simplified timed-automata 
 ## Files
 
 - `Rapport-TLS-UPPAAL.pdf`: full report (French)
-- original model: version before the countermeasures (the attacks succeed)
+- `model_original.xml`: version before the countermeasures (the attacks succeed)
 - `model_with_countermeasures.xml`: model with the two countermeasures added (guard `version_negotiated >= 2`, check `heartbeat_length <= payload_size`)
 
 ## Limits
@@ -24,3 +24,4 @@ University project (FST, Université Tunis El Manar). Simplified timed-automata 
 ## Authors
 
 Oussama Hkimi, Baraa Benarfi, Farah Benarbi, Rym Jlidi, Amani Arouri
+
