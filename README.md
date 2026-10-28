@@ -5,20 +5,21 @@ University project (FST, Université Tunis El Manar). Simplified timed-automata 
 ## What is modelled
 
 - Templates: Client, Server, Attacker_POODLE, Attacker_Heartbleed
-- 7 CTL queries (deadlock freedom, session reachability, attack reachability, safety)
-- UPPAAL-SMC probability analysis before and after the countermeasures
+- 8 CTL queries (deadlock freedom, session reachability, attack reachability, safety)
+- UPPAAL-SMC probability analysis before and after the countermeasures (see report)
 - Countermeasures: minimum protocol version (POODLE), payload size check (Heartbleed)
+
+## Files
+
+- `Rapport-TLS-UPPAAL.pdf`: full report (French)
+- original model: version before the countermeasures (the attacks succeed)
+- `model_with_countermeasures.xml`: model with the two countermeasures added (guard `version_negotiated >= 2`, check `heartbeat_length <= payload_size`)
 
 ## Limits
 
 - Abstract model: no real cryptography, simplified handshake
 - POODLE and Heartbleed target older SSL/TLS versions and OpenSSL 1.0.1; here they are modelled abstractly on top of the handshake, not as attacks on TLS 1.3 itself
 - No real man-in-the-middle scenario
-
-## Files
-
-- `Rapport-TLS-UPPAAL.pdf`: full report (French)
-- `*.xml`: UPPAAL model (open with UPPAAL)
 
 ## Authors
 
