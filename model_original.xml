@@ -1,0 +1,405 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE nta PUBLIC '-//Uppaal Team//DTD Flat System 1.6//EN' 'http://www.it.uu.se/research/group/darts/uppaal/flat-1_6.dtd'>
+<nta>
+	<declaration>
+/* =============================================================
+   HTTPS / TLS ABSTRACT MODEL — UPPAAL
+   CVE-2014-3566 (POODLE) + CVE-2014-0160 (Heartbleed)
+   Student project — Faculté des Sciences de Tunis
+   ============================================================= */
+
+/* Channels — binary for handshake, broadcast for data/alert */
+chan ch_clientHello;
+chan ch_serverHello;
+chan ch_clientFinished;
+broadcast chan ch_appData;
+broadcast chan ch_alert;
+
+/* Heartbleed channels — binary so Server must respond to Attacker */
+chan ch_heartbeatReq;
+chan ch_heartbeatResp;
+
+/* Session flags */
+bool session_client      = false;
+bool session_established = false;
+
+/* Handshake timeout */
+clock c_timer;
+const int TIMEOUT = 30;
+
+/* POODLE — CVE-2014-3566 */
+int[0,3] version_negotiated = 3;
+bool poodle_success          = false;
+int  retry_count             = 0;
+const int MAX_RETRY          = 3;
+
+/* Heartbleed — CVE-2014-0160
+   heartbeat_length : longueur declaree par l attaquant
+   payload_size     : taille reelle du payload envoye
+   memory_leak      : positionne par le Serveur apres reponse
+   hb_success       : confirme par l attaquant apres observation */
+int  heartbeat_length = 5;
+int  payload_size     = 1;
+bool memory_leak      = false;
+bool hb_success       = false;
+</declaration>
+	<template>
+		<name>Client</name>
+		<location id="id0" x="40" y="80">
+			<name x="25" y="50">Init</name>
+		</location>
+		<location id="id1" x="220" y="80">
+			<name x="205" y="50">HelloSent</name>
+			<label kind="invariant" x="205" y="95">c_timer &lt;= TIMEOUT</label>
+		</location>
+		<location id="id2" x="220" y="230">
+			<name x="205" y="245">ServerHelloReceived</name>
+		</location>
+		<location id="id3" x="40" y="230">
+			<name x="25" y="245">Connected</name>
+		</location>
+		<location id="id4" x="400" y="80">
+			<name x="385" y="50">DataTransfer</name>
+		</location>
+		<location id="id5" x="400" y="230">
+			<name x="385" y="245">Error</name>
+		</location>
+		<location id="id6" x="400" y="380">
+			<name x="385" y="395">Closed</name>
+		</location>
+		<init ref="id0"/>
+		<transition id="id7">
+			<source ref="id0"/>
+			<target ref="id1"/>
+			<label kind="synchronisation" x="55" y="60">ch_clientHello!</label>
+			<label kind="assignment" x="55" y="75">c_timer = 0</label>
+		</transition>
+		<transition id="id8">
+			<source ref="id1"/>
+			<target ref="id2"/>
+			<label kind="synchronisation" x="140" y="145">ch_serverHello?</label>
+		</transition>
+		<transition id="id9">
+			<source ref="id2"/>
+			<target ref="id3"/>
+			<label kind="synchronisation" x="55" y="215">ch_clientFinished!</label>
+			<label kind="assignment" x="55" y="230">session_client = true, session_established = true</label>
+		</transition>
+		<transition id="id10">
+			<source ref="id3"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="145" y="55">ch_appData!</label>
+		</transition>
+		<transition id="id11">
+			<source ref="id4"/>
+			<target ref="id4"/>
+			<label kind="synchronisation" x="430" y="55">ch_appData!</label>
+			<nail x="370" y="50"/>
+			<nail x="430" y="50"/>
+		</transition>
+		<transition id="id12">
+			<source ref="id4"/>
+			<target ref="id5"/>
+			<label kind="synchronisation" x="415" y="145">ch_alert!</label>
+		</transition>
+		<transition id="id13">
+			<source ref="id1"/>
+			<target ref="id6"/>
+			<label kind="guard" x="245" y="270">c_timer &gt;= TIMEOUT</label>
+			<label kind="synchronisation" x="245" y="285">ch_alert!</label>
+		</transition>
+		<transition id="id14">
+			<source ref="id5"/>
+			<target ref="id6"/>
+		</transition>
+		<transition id="id15">
+			<source ref="id6"/>
+			<target ref="id0"/>
+		</transition>
+	</template>
+	<template>
+		<name>Server</name>
+		<location id="id16" x="40" y="80">
+			<name x="25" y="50">Init</name>
+		</location>
+		<location id="id17" x="220" y="80">
+			<name x="205" y="50">HelloReceived</name>
+		</location>
+		<location id="id18" x="220" y="230">
+			<name x="205" y="245">HelloSent</name>
+		</location>
+		<location id="id19" x="40" y="230">
+			<name x="25" y="245">FinishedReceived</name>
+		</location>
+		<location id="id20" x="40" y="380">
+			<name x="25" y="395">Session</name>
+		</location>
+		<location id="id21" x="40" y="500">
+			<name x="25" y="515">HR_Computing</name>
+			<committed/>
+		</location>
+		<location id="id22" x="400" y="230">
+			<name x="385" y="245">Data</name>
+		</location>
+		<location id="id23" x="400" y="380">
+			<name x="385" y="395">HR_Computing_Data</name>
+			<committed/>
+		</location>
+		<location id="id24" x="400" y="500">
+			<name x="385" y="515">Closed</name>
+		</location>
+		<init ref="id16"/>
+		<transition id="id25">
+			<source ref="id16"/>
+			<target ref="id17"/>
+			<label kind="synchronisation" x="55" y="60">ch_clientHello?</label>
+		</transition>
+		<transition id="id26">
+			<source ref="id17"/>
+			<target ref="id18"/>
+			<label kind="synchronisation" x="140" y="145">ch_serverHello!</label>
+		</transition>
+		<transition id="id27">
+			<source ref="id18"/>
+			<target ref="id19"/>
+			<label kind="synchronisation" x="55" y="215">ch_clientFinished?</label>
+		</transition>
+		<transition id="id28">
+			<source ref="id19"/>
+			<target ref="id20"/>
+		</transition>
+		<transition id="id29">
+			<source ref="id20"/>
+			<target ref="id22"/>
+			<label kind="synchronisation" x="175" y="295">ch_appData?</label>
+		</transition>
+		<transition id="id30">
+			<source ref="id20"/>
+			<target ref="id24"/>
+			<label kind="synchronisation" x="55" y="580">ch_alert?</label>
+		</transition>
+		<transition id="id31">
+			<source ref="id20"/>
+			<target ref="id21"/>
+			<label kind="synchronisation" x="-140" y="430">ch_heartbeatReq?</label>
+		</transition>
+		<transition id="id32">
+			<source ref="id21"/>
+			<target ref="id20"/>
+			<label kind="synchronisation" x="-200" y="480">ch_heartbeatResp!</label>
+			<label kind="assignment" x="-200" y="465">memory_leak = (heartbeat_length &gt; payload_size)</label>
+		</transition>
+		<transition id="id33">
+			<source ref="id22"/>
+			<target ref="id22"/>
+			<label kind="synchronisation" x="430" y="270">ch_appData?</label>
+			<nail x="370" y="200"/>
+			<nail x="430" y="200"/>
+		</transition>
+		<transition id="id34">
+			<source ref="id22"/>
+			<target ref="id23"/>
+			<label kind="synchronisation" x="430" y="295">ch_heartbeatReq?</label>
+		</transition>
+		<transition id="id35">
+			<source ref="id23"/>
+			<target ref="id22"/>
+			<label kind="synchronisation" x="430" y="345">ch_heartbeatResp!</label>
+			<label kind="assignment" x="430" y="330">memory_leak = (heartbeat_length &gt; payload_size)</label>
+		</transition>
+		<transition id="id36">
+			<source ref="id22"/>
+			<target ref="id24"/>
+			<label kind="synchronisation" x="415" y="440">ch_alert?</label>
+		</transition>
+		<transition id="id37">
+			<source ref="id24"/>
+			<target ref="id16"/>
+		</transition>
+	</template>
+	<template>
+		<name>Attacker_POODLE</name>
+		<location id="id38" x="40" y="80">
+			<name x="25" y="50">idle</name>
+		</location>
+		<location id="id39" x="220" y="80">
+			<name x="205" y="50">inject</name>
+		</location>
+		<location id="id40" x="220" y="230">
+			<name x="205" y="245">retry</name>
+		</location>
+		<location id="id41" x="40" y="230">
+			<name x="25" y="245">downgrade</name>
+		</location>
+		<location id="id42" x="400" y="80">
+			<name x="385" y="50">downgrade_achieved</name>
+		</location>
+		<location id="id43" x="400" y="230">
+			<name x="385" y="245">padding_oracle</name>
+		</location>
+		<location id="id44" x="580" y="230">
+			<name x="565" y="245">session_decrypted</name>
+		</location>
+		<init ref="id38"/>
+		<transition id="id45">
+			<source ref="id38"/>
+			<target ref="id39"/>
+			<label kind="assignment" x="55" y="60">retry_count = 0</label>
+		</transition>
+		<transition id="id46">
+			<source ref="id39"/>
+			<target ref="id40"/>
+			<label kind="guard" x="140" y="130">version_negotiated &gt; 0</label>
+			<label kind="assignment" x="140" y="145">version_negotiated = version_negotiated - 1</label>
+		</transition>
+		<transition id="id47">
+			<source ref="id40"/>
+			<target ref="id41"/>
+			<label kind="assignment" x="55" y="215">retry_count = retry_count + 1</label>
+		</transition>
+		<transition id="id48">
+			<source ref="id41"/>
+			<target ref="id39"/>
+			<label kind="guard" x="55" y="145">version_negotiated &gt; 0 &amp;&amp; retry_count &lt; MAX_RETRY</label>
+		</transition>
+		<transition id="id49">
+			<source ref="id41"/>
+			<target ref="id42"/>
+			<label kind="guard" x="160" y="125">version_negotiated == 0</label>
+		</transition>
+		<transition id="id50">
+			<source ref="id42"/>
+			<target ref="id43"/>
+		</transition>
+		<transition id="id51">
+			<source ref="id43"/>
+			<target ref="id44"/>
+			<label kind="assignment" x="430" y="230">poodle_success = true</label>
+		</transition>
+		<transition id="id52">
+			<source ref="id44"/>
+			<target ref="id44"/>
+			<nail x="550" y="200"/>
+			<nail x="610" y="200"/>
+		</transition>
+	</template>
+	<template>
+		<name>Attacker_Heartbleed</name>
+		<location id="id53" x="40" y="80">
+			<name x="25" y="50">idle</name>
+		</location>
+		<location id="id54" x="220" y="80">
+			<name x="205" y="50">session_active</name>
+		</location>
+		<location id="id55" x="400" y="80">
+			<name x="385" y="50">send_heartbeat</name>
+		</location>
+		<location id="id56" x="400" y="230">
+			<name x="385" y="245">wait_response</name>
+		</location>
+		<location id="id57" x="220" y="230">
+			<name x="205" y="245">leak</name>
+		</location>
+		<location id="id58" x="40" y="230">
+			<name x="25" y="245">success</name>
+		</location>
+		<init ref="id53"/>
+		<transition id="id59">
+			<source ref="id53"/>
+			<target ref="id53"/>
+			<label kind="guard" x="25" y="130">session_established == false</label>
+			<nail x="10" y="50"/>
+			<nail x="70" y="50"/>
+		</transition>
+		<transition id="id60">
+			<source ref="id53"/>
+			<target ref="id54"/>
+			<label kind="guard" x="55" y="55">session_established == true</label>
+		</transition>
+		<transition id="id61">
+			<source ref="id54"/>
+			<target ref="id55"/>
+			<label kind="synchronisation" x="250" y="60">ch_heartbeatReq!</label>
+		</transition>
+		<transition id="id62">
+			<source ref="id55"/>
+			<target ref="id56"/>
+			<label kind="synchronisation" x="415" y="145">ch_heartbeatResp?</label>
+		</transition>
+		<transition id="id63">
+			<source ref="id56"/>
+			<target ref="id57"/>
+			<label kind="guard" x="240" y="195">memory_leak == true</label>
+		</transition>
+		<transition id="id64">
+			<source ref="id56"/>
+			<target ref="id53"/>
+			<label kind="guard" x="55" y="320">memory_leak == false</label>
+		</transition>
+		<transition id="id65">
+			<source ref="id57"/>
+			<target ref="id58"/>
+			<label kind="assignment" x="55" y="210">hb_success = true</label>
+		</transition>
+		<transition id="id66">
+			<source ref="id58"/>
+			<target ref="id58"/>
+			<nail x="10" y="200"/>
+			<nail x="70" y="200"/>
+		</transition>
+	</template>
+	<system>
+system Client, Server, Attacker_POODLE, Attacker_Heartbleed;
+</system>
+	<queries>
+		<query>
+			<formula>A[] not deadlock</formula>
+			<comment>Absence de deadlock — attendu SATISFAIT</comment>
+			<result outcome="success" type="quality" timestamp="2026-04-30 18:21:34 +0100">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; session_established</formula>
+			<comment>Une session peut etre etablie — attendu SATISFAIT</comment>
+			<result outcome="success" type="quality" timestamp="2026-04-30 18:21:36 +0100">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Client.Connected</formula>
+			<comment>Le client atteint Connected — attendu SATISFAIT</comment>
+			<result outcome="success" type="quality" timestamp="2026-04-30 18:21:38 +0100">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Server.Session</formula>
+			<comment>Le serveur atteint Session — attendu SATISFAIT</comment>
+			<result outcome="success" type="quality" timestamp="2026-04-30 19:10:23 +0100">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Server.FinishedReceived</formula>
+			<comment>Checks whether the server can receive the client's finished message.</comment>
+			<result outcome="success" type="quality" timestamp="2026-04-30 19:23:44 +0100">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Attacker_POODLE.downgrade</formula>
+			<comment>L attaquant atteint downgrade — attendu SATISFAIT</comment>
+			<result outcome="success" type="quality" timestamp="2026-04-30 18:23:05 +0100">
+			</result>
+		</query>
+		<query>
+			<formula>A[] not memory_leak</formula>
+			<comment>Fuite memoire ne doit jamais arriver — attendu NON SATISFAIT</comment>
+			<result outcome="failure" type="quality" timestamp="2026-04-30 18:22:56 +0100">
+			</result>
+		</query>
+		<query>
+			<formula>E&lt;&gt; Attacker_POODLE.session_decrypted</formula>
+			<comment>Checks whether the POODLE attacker can reach the decrypted-session state.</comment>
+			<result outcome="success" type="quality" timestamp="2026-04-30 18:22:07 +0100">
+			</result>
+		</query>
+
+	</queries>
+</nta>
